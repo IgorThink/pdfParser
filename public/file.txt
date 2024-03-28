@@ -1,0 +1,23 @@
+{
+  class: string
+  race: Array<string>
+  description: string
+  advanceScheme: { // plus -1 , 2axe - 2, scul: 3, shield: 4
+    ws: number
+    BS: number
+    S: number
+    T: number
+    I: number
+    Agi: number
+    Dex: number
+    Int: number
+    WP: number
+    Fel: number
+  }
+  careerPath: Array<{
+    name: string
+    skills: Array<string>
+    talents: Array<string>
+    Trappings: Array<string>
+  }>
+}

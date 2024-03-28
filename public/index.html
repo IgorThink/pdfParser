@@ -1,36 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-</head>
-<body>
-    <input type="file" id="inpFile">
+  </head>
+  <body>
+    <input type="file" id="inpFile" />
     <button type="button" id="btnUpload">Upload</button>
-    <br>
-    <br>
-    <textarea style="width: 300px; height: 150px;" id="resultText" placeholder="Your PDF text will appear here..."></textarea>
+    <br />
+    <br />
+    <textarea
+      style="width: 300px; height: 150px"
+      id="resultText"
+      placeholder="Your PDF text will appear here..."
+    ></textarea>
     <script>
-        const inpFile = document.getElementById("inpFile");
-        const btnUpload = document.getElementById("btnUpload");
-        const resultText = document.getElementById("resultText");
+      const inpFile = document.getElementById("inpFile");
+      const btnUpload = document.getElementById("btnUpload");
+      const resultText = document.getElementById("resultText");
 
-        btnUpload.addEventListener("click", () => {
-            const formData = new FormData();
+      btnUpload.addEventListener("click", () => {
+        const formData = new FormData();
 
-            formData.append("pdfFile", inpFile.files[0]);
+        formData.append("pdfFile", inpFile.files[0]);
 
-            fetch("/extract-text", {
-                method: "post",
-                body: formData
-            }).then(response => {
-                return response.text();
-            }).then(extractedText => {
-                resultText.value = extractedText.trim();
+        fetch("/extract-text", {
+          method: "post",
+          body: formData,
+        })
+          .then((response) => {
+            const result = response.text();
+            return result;
+          })
+          .then((extractedText) => {
+            let count = 0;
+            const stringValue = extractedText
+              .split("III")
+              .map((item, index) => {
+                return item
+                  .replace(
+                    "\ncla s s   a n d  car e e r s  \n-\n aca d e mIcs",
+                    ""
+                  )
+                  .replace("\nWa r h a m m e r   Fa n ta s y  rol e p l ay", "")
+                  .replace("\ncla s s   a n d  car e e r s  \n-", "")
+                  .replace(`\n${index > 1 ? 53 + index - 1 : 53}\n`, "")
+                  .replace("  c o u r tIer s\n", "")
+                  .replace("  p e a s a n t s\n", "")
+                  .replace(" War rIor s\n", "")
+                  .replace("  r oGue s\n", "");
+              })
+              .map((item) => {
+                return item.replace("\n", "").trim();
+              })
+              .filter((item) => item !== "" && item !== " " && item.length > 5);
+            const JsonObjFromPDF = [];
+            stringValue.forEach((item, index, array) => {
+              const key = item.split("\n").filter((item) => item !== " ");
+              if (key.length > 80) {
+              }
+              key.reduce(
+                (control, arrayItem, indexArray, arrayNew) => {
+                  if (
+                    arrayNew.length > 80 &&
+                    (arrayItem.toLowerCase().trim() === "artist" ||
+                      arrayItem.toLowerCase().trim() === "hedge witch" ||
+                      arrayItem.toLocaleLowerCase().trim() === "coachman" ||
+                      arrayItem.toLowerCase().trim() == "seaman" ||
+                      arrayItem.toLowerCase().trim() === "seaman")
+                  ) {
+                    control.newItem = true;
+                    control.newIndex += 1;
+                    control = {
+                      isDescription: false,
+                      isStats: false,
+                      currentStat: "",
+                      indexOfStat: -1,
+                      newItem: true,
+                      newIndex: 0,
+                    };
+                  }
+                  if (control.newIndex >= 0) {
+                    switch (control.newIndex) {
+                      case 0:
+                        JsonObjFromPDF[control.newItem ? index + 60 : index] = {
+                          class: arrayItem.toUpperCase(),
+                        };
+                      case 1:
+                        JsonObjFromPDF[
+                          control.newItem ? index + 60 : index
+                        ].race = arrayItem.split(",");
+                        control.isDescription = true;
+                    }
+                    control.newIndex += 1;
+                  } else {
+                    switch (indexArray) {
+                      case 0:
+                        JsonObjFromPDF[control.newItem ? index + 60 : index] = {
+                          class: arrayItem.includes("RiveRWomAn")
+                            ? "RiveRWomAn".toUpperCase()
+                            : arrayItem.toUpperCase().replaceAll(" ", ""),
+                        };
+                      case 1:
+                        JsonObjFromPDF[
+                          control.newItem ? index + 60 : index
+                        ].race =
+                          JsonObjFromPDF[control.newItem ? index + 60 : index]
+                            .class === "RiveRWomAn".toUpperCase()
+                            ? "Dwarf, Halfling, HumanHalfling, Human".split(",")
+                            : arrayItem.split(",");
+                        control.isDescription = true;
+                    }
+                  }
+                  if (
+                    arrayItem.toLocaleLowerCase().includes("advance scheme")
+                  ) {
+                    control.isDescription = false;
+                  } else {
+                    if (arrayItem.includes("‘")) {
+                      control.isDescription = true;
+                      control.isStats = false;
+                    }
+                    if (
+                      control.isDescription &&
+                      (indexArray > 1 || control.newIndex > 1)
+                    ) {
+                      JsonObjFromPDF[
+                        control.newItem ? index + 60 : index
+                      ].description =
+                        (JsonObjFromPDF[control.newItem ? index + 60 : index]
+                          .description
+                          ? JsonObjFromPDF[control.newItem ? index + 60 : index]
+                              .description +
+                            " " +
+                            arrayItem
+                          : arrayItem) + "\n";
+                    }
+                  }
+                  if (
+                    arrayItem
+                      .replaceAll(" ", "")
+                      .toLowerCase()
+                      .includes("careerpath")
+                  ) {
+                    control.isStats = true;
+                    JsonObjFromPDF[
+                      control.newItem ? index + 60 : index
+                    ].careerPath = [];
+                  } else {
+                    if (control.isStats) {
+                      if (arrayItem.includes("—")) {
+                        JsonObjFromPDF[
+                          control.newItem ? index + 60 : index
+                        ].careerPath.push({
+                          name: arrayItem.toLowerCase().trim(),
+                        });
+                        control.indexOfStat = control.indexOfStat + 1;
+                      } else {
+                        if (arrayItem.includes(":")) {
+                          control.currentStat = arrayItem
+                            .split(":")[0]
+                            .toLowerCase()
+                            .trim();
+                          JsonObjFromPDF[
+                            control.newItem ? index + 60 : index
+                          ].careerPath[control.indexOfStat][
+                            control.currentStat
+                          ] = [arrayItem.split(":")[1].trim()];
+                        }
+                        if (control.currentStat) {
+                          if (!arrayItem.includes(":")) {
+                            JsonObjFromPDF[
+                              control.newItem ? index + 60 : index
+                            ].careerPath[control.indexOfStat][
+                              control.currentStat
+                            ].push(
+                              ...arrayItem
+                                .split(",")
+                                .filter((item) => item !== "")
+                            );
+                          }
+                        }
+                      }
+                    }
+                  }
+                  return control;
+                },
+                {
+                  isDescription: false,
+                  isStats: false,
+                  currentStat: "",
+                  indexOfStat: -1,
+                  newItem: false,
+                  newIndex: -1,
+                }
+              );
             });
-        });
+            console.log(JsonObjFromPDF.filter((item) => item));
+            resultText.value = stringValue.join("\n new string \n");
+          });
+      });
     </script>
-</body>
+  </body>
 </html>
