@@ -21,3 +21,15 @@
     Trappings: Array<string>
   }>
 }
+
+{
+  name: string
+  description: string
+  example: string
+  d20Settings: Array<{
+    string(d20 values diaposon): string
+    //'9-10': 'some desctiprions'
+  }>,
+  Specialties: Array<string>
+  example: string
+}

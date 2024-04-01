@@ -8,7 +8,8 @@
   </head>
   <body>
     <input type="file" id="inpFile" />
-    <button type="button" id="btnUpload">Upload</button>
+    <button type="button" id="btnUpload">Upload cards</button>
+    <button type="button" id="btnUploadSkills">Upload skills</button>
     <br />
     <br />
     <textarea
@@ -19,8 +20,248 @@
     <script>
       const inpFile = document.getElementById("inpFile");
       const btnUpload = document.getElementById("btnUpload");
+      const btnUploadSkills = document.getElementById("btnUploadSkills");
       const resultText = document.getElementById("resultText");
+      btnUploadSkills.addEventListener("click", () => {
+        const formData = new FormData();
 
+        formData.append("pdfFile", inpFile.files[0]);
+
+        fetch("/extract-text", {
+          method: "post",
+          body: formData,
+        })
+          .then((response) => {
+            const result = response.text();
+            return result;
+          })
+          .then((extractedText) => {
+            const stringValue = extractedText.split("\n");
+            // .filter((item) => {
+            //   item.trim() !== ""
+            // });
+            resultText.value = stringValue.join("\n");
+            const listOfBasics = [
+              "(Ag)",
+              "(WS)",
+              "(BS)",
+              "(S)",
+              "(T)",
+              "(I)",
+              "(Dex)",
+              "(Int)",
+              "(WP)",
+              "(Fel)",
+            ];
+            const listOfHeaderNames = [
+              "Wa r h a m m e r   Fa n ta s y  rol e p l ay",
+              "cla s s   a n d  car e e r s  \n-\n aca d e mIcs",
+              "IV",
+            ];
+            const listOfGMrules = [
+              "animals",
+              "public speaking",
+              "begging",
+              "options",
+              "half-heard whispers",
+              "optIons: alternatIve",
+              "ch",
+              "aracter",
+              "Is",
+              "t",
+              "Ic",
+              "s",
+              "Fo",
+              "r Int",
+              "ImId",
+              "ate",
+              "optIons: battle tongue",
+              "who's the boss",
+              "GatherinG FOOd",
+              "and herbs",
+              "LOcks and LOck picks",
+              "the old World’s a staGe...",
+              "research and lIBrarIes",
+            ];
+
+            const validateTitle = (item) => {
+              let result = false;
+              listOfBasics.forEach((element) => {
+                if (item.includes(element)) {
+                  result = true;
+                }
+              });
+              return result;
+            };
+
+            const validateText = (item) => {
+              let result = false;
+              listOfGMrules.forEach((element) => {
+                if (item.toLowerCase() === element.toLowerCase()) {
+                  result = true;
+                }
+              });
+              return result;
+            };
+
+            const startIndex = stringValue.findIndex((item) =>
+              item.includes("masTeR skill lisT")
+            );
+            const listOfStats = [];
+            stringValue.reduce(
+              (settings, item, index, array) => {
+                if (!listOfHeaderNames.includes(item) && index > startIndex) {
+                  if (validateTitle(item)) {
+                    listOfStats.push({
+                      name: item,
+                    });
+                    settings = {
+                      ...settings,
+                      example: false,
+                      specialisations: false,
+                      d10: false,
+                      d10Key: "",
+                    };
+                    settings.indexOfSkill += 1;
+                    settings.writable = true;
+                    return settings;
+                  }
+                  if (!validateText(item) && settings.writable) {
+                    if (
+                      item.includes("Specialties:")
+                      // &&
+                      // !item.includes("Specialisations") &&
+                      // !item.includes("Example")
+                    ) {
+                      settings.example = false;
+                      settings.specialisations = false;
+                      listOfStats[settings.indexOfSkill].specialties = item
+                        .split("Specialties:")[1]
+                        .trim()
+                        .split(",");
+                    } else {
+                      if (item.includes("Example:")) {
+                        settings.specialisations = false;
+                        if (!listOfStats[settings.indexOfSkill].example) {
+                          listOfStats[settings.indexOfSkill].example = "";
+                        }
+                        listOfStats[settings.indexOfSkill].example +=
+                          item.split("Example:")[1] + "\n";
+                        settings.example = true;
+                        return settings;
+                      } else {
+                        if (
+                          settings.example &&
+                          !item.includes("Specialisations") &&
+                          !item.includes("Specialties")
+                        ) {
+                          settings.specialisations = false;
+                          if (item.trim()) {
+                            listOfStats[settings.indexOfSkill].example +=
+                              item + "\n";
+                          } else {
+                            settings.example = false;
+                            return settings;
+                          }
+                        } else {
+                          if (item.includes("Specialisations:")) {
+                            settings.example = false;
+                            if (
+                              !listOfStats[settings.indexOfSkill]
+                                .specialisations
+                            ) {
+                              listOfStats[
+                                settings.indexOfSkill
+                              ].specialisations = "";
+                            }
+                            listOfStats[
+                              settings.indexOfSkill
+                            ].specialisations +=
+                              item.split("Specialisations:")[1] + "\n";
+                            settings.specialisations = true;
+                            return settings;
+                          } else {
+                            if (
+                              settings.specialisations &&
+                              !item.includes("Specialties") &&
+                              !item.includes("Example")
+                            ) {
+                              if (item.trim()) {
+                                listOfStats[
+                                  settings.indexOfSkill
+                                ].specialisations += item + "\n";
+                              } else {
+                                settings.specialisations = false;
+                                return settings;
+                              }
+                            } else {
+                              if (item.includes("1d10")) {
+                                settings.d10 = true;
+                                listOfStats[settings.indexOfSkill].d10 = {};
+                              } else {
+                                if (settings.d10) {
+                                  if (item.includes("-")) {
+                                    settings.d10Key = `${item.split("-")[0]}-${
+                                      item.split("-")[1][0]
+                                    }`;
+                                    listOfStats[settings.indexOfSkill].d10[
+                                      settings.d10Key
+                                    ] = item.split(item.split("-")[1][0])[1];
+                                  } else {
+                                    if (
+                                      item ===
+                                        "After  not  drinking  for  an  hour,  enact  a Challenging  (+0) " ||
+                                      item ===
+                                        "Crashing: Occupants  of  Crashing  vehicles  usually  suffer  2d10 "
+                                    ) {
+                                      settings.d10 = false;
+                                      settings.d10Key;
+                                    } else {
+                                      listOfStats[settings.indexOfSkill].d10[
+                                        settings.d10Key
+                                      ] += item;
+                                    }
+                                  }
+                                } else {
+                                  if (
+                                    listOfStats[settings.indexOfSkill]
+                                      .description === undefined
+                                  ) {
+                                    listOfStats[
+                                      settings.indexOfSkill
+                                    ].description = "";
+                                  }
+                                  listOfStats[
+                                    settings.indexOfSkill
+                                  ].description += item + "\n";
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                    return settings;
+                  } else {
+                    settings.writable = false;
+                  }
+                  return settings;
+                } else {
+                  return settings;
+                }
+              },
+              {
+                writable: true,
+                indexOfSkill: -1,
+                example: false,
+                specialisations: false,
+                d10: false,
+                d10Key: "",
+              }
+            );
+            console.log(listOfStats);
+          });
+      });
       btnUpload.addEventListener("click", () => {
         const formData = new FormData();
 
